@@ -1,64 +1,118 @@
-def calculate_signal(data_15m, data_1h):
-    score = 0
-    reasons = []
+from config import *
 
-    # 1H Trend Confirmation
-    if data_1h["ema50"] > data_1h["ema200"]:
-        score += 2
-        reasons.append("1H Trend Bullish")
-        trend = "LONG"
-    elif data_1h["ema50"] < data_1h["ema200"]:
-        score += 2
-        reasons.append("1H Trend Bearish")
-        trend = "SHORT"
-    else:
-        trend = "NONE"
+class Strategy:
 
+    @staticmethod
+    def generate_signal(df15, df1h, symbol):
 
-    # 15M Entry Confirmation
-    if trend == "LONG":
-        if data_15m["ema50"] > data_15m["ema200"]:
-            score += 2
-            reasons.append("15M EMA Confirmed")
+        last15 = df15.iloc[-1]
+        last1h = df1h.iloc[-1]
 
-    elif trend == "SHORT":
-        if data_15m["ema50"] < data_15m["ema200"]:
-            score += 2
-            reasons.append("15M EMA Confirmed")
+        # ==========================
+        # 1H Trend Filter
+        # ==========================
+        bullish_trend = (
+            last1h["ema50"] > last1h["ema200"]
+        )
 
+        bearish_trend = (
+            last1h["ema50"] < last1h["ema200"]
+        )
 
-    # RSI Filter
-    if 35 <= data_15m["rsi"] <= 65:
-        score += 1
-        reasons.append("RSI Healthy")
+        # ==========================
+        # Long Conditions
+        # ==========================
+        long_signal = (
+            bullish_trend
+            and last15["ema20"] > last15["ema50"]
+            and last15["rsi"] > RSI_BUY
+            and last15["macd"] > last15["macd_signal"]
+            and last15["volume"] > last15["volume_ma20"]
+        )
 
+        # ==========================
+        # Short Conditions
+        # ==========================
+        short_signal = (
+            bearish_trend
+            and last15["ema20"] < last15["ema50"]
+            and last15["rsi"] < RSI_SELL
+            and last15["macd"] < last15["macd_signal"]
+            and last15["volume"] > last15["volume_ma20"]
+        )
 
-    # MACD Confirmation
-    if trend == "LONG" and data_15m["macd"] > data_15m["signal"]:
-        score += 2
-        reasons.append("MACD Bullish")
+        # ==========================
+        # LONG
+        # ==========================
+        if long_signal:
 
-    elif trend == "SHORT" and data_15m["macd"] < data_15m["signal"]:
-        score += 2
-        reasons.append("MACD Bearish")
+            entry = round(last15["close"], 2)
 
+            stop = round(
+                entry - (last15["atr"] * ATR_MULTIPLIER),
+                2
+            )
 
-    # Volume Confirmation
-    if data_15m["volume"] > data_15m["avg_volume"]:
-        score += 1
-        reasons.append("Volume Confirmed")
+            tp1 = round(
+                entry + ((entry - stop) * 2),
+                2
+            )
 
+            tp2 = round(
+                entry + ((entry - stop) * 3),
+                2
+            )
 
-    # Final Signal
-    if score >= 7:
-        return {
-            "signal": trend,
-            "score": score,
-            "reasons": reasons
-        }
+            tp3 = round(
+                entry + ((entry - stop) * 4),
+                2
+            )
 
-    return {
-        "signal": "NO SIGNAL",
-        "score": score,
-        "reasons": reasons
-    }
+            return {
+                "side": "LONG",
+                "symbol": symbol,
+                "entry": entry,
+                "stop": stop,
+                "tp1": tp1,
+                "tp2": tp2,
+                "tp3": tp3
+            }
+
+        # ==========================
+        # SHORT
+        # ==========================
+        if short_signal:
+
+            entry = round(last15["close"], 2)
+
+            stop = round(
+                entry + (last15["atr"] * ATR_MULTIPLIER),
+                2
+            )
+
+            tp1 = round(
+                entry - ((stop - entry) * 2),
+                2
+            )
+
+            tp2 = round(
+                entry - ((stop - entry) * 3),
+                2
+            )
+
+            tp3 = round(
+                entry - ((stop - entry) * 4),
+                2
+            )
+
+            return {
+                "side": "SHORT",
+                "symbol": symbol,
+                "entry": entry,
+                "stop": stop,
+                "tp1": tp1,
+                "tp2": tp2,
+                "tp3": tp3
+            }
+
+        return None
