@@ -24,9 +24,13 @@ load_dotenv()
 
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_ID = os.getenv("CHANNEL_ID", "@bayzidsignals")
+CHANNEL_ID = os.getenv(
+    "CHANNEL_ID",
+    "@bayzidsignals"
+)
 
 SYMBOL = "BTCUSDT"
+
 
 
 # =========================
@@ -55,20 +59,25 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
 def run_server():
 
     port = int(
-        os.environ.get(
+        os.getenv(
             "PORT",
             10000
         )
     )
 
     server = HTTPServer(
-        ("0.0.0.0", port),
+        (
+            "0.0.0.0",
+            port
+        ),
         HealthCheckHandler
     )
+
 
     print(
         f"Web server running on port {port}"
     )
+
 
     server.serve_forever()
 
@@ -84,7 +93,7 @@ async def start(
 ):
 
     await update.message.reply_text(
-        "✅ Bayzid Signal Bot is Running!"
+        "✅ Bayzid Signal Bot Running"
     )
 
 
@@ -106,7 +115,7 @@ async def test(
 
 
     await update.message.reply_text(
-        "✅ Test signal sent!"
+        "✅ Test signal sent"
     )
 
 
@@ -133,31 +142,34 @@ async def scan_market(app):
             )
 
 
-            result = calculate_signal(
+            signal = calculate_signal(
                 data_15m,
                 data_1h
             )
 
 
             print(
-                "Scanner:",
-                result
+                "Scanner Result:",
+                signal
             )
 
 
-            if result["signal"] != "NO SIGNAL":
+            if signal.get("signal") != "NO SIGNAL":
 
 
                 message = (
                     "🚀 Crypto Futures Signal\n\n"
                     f"📌 Pair: {SYMBOL}\n"
-                    f"📈 Direction: {result['signal']}\n"
-                    f"⭐ Score: {result['score']}\n\n"
+                    f"📈 Direction: {signal.get('signal')}\n"
+                    f"⭐ Score: {signal.get('score')}\n\n"
                     "Reasons:\n"
                 )
 
 
-                for reason in result["reasons"]:
+                for reason in signal.get(
+                    "reasons",
+                    []
+                ):
 
                     message += (
                         f"✅ {reason}\n"
@@ -174,7 +186,7 @@ async def scan_market(app):
 
             print(
                 "Scanner Error:",
-                str(e)
+                e
             )
 
 
@@ -183,11 +195,10 @@ async def scan_market(app):
 
 
 # =========================
-# Bot Start
+# Start Bot
 # =========================
 
 def main():
-
 
     app = (
         Application
@@ -213,7 +224,8 @@ def main():
     )
 
 
-    async def post_init(application):
+
+    async def start_scanner(application):
 
         asyncio.create_task(
             scan_market(application)
@@ -224,7 +236,8 @@ def main():
         )
 
 
-    app.post_init = post_init
+
+    app.post_init = start_scanner
 
 
     print(
