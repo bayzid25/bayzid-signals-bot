@@ -16,7 +16,7 @@ from telegram.ext import (
     ContextTypes
 )
 
-from binance_api import get_market_data
+from bybit_api import get_market_data
 from strategy import calculate_signal
 
 
