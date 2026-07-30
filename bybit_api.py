@@ -5,7 +5,7 @@
 import requests
 
 
-BASE_URL = "https://api.bybit.com/v5/market/kline"
+BASE_URL = "https://api.bytick.com/v5/market/kline"
 
 
 SYMBOLS = [
