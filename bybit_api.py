@@ -36,7 +36,7 @@ def get_market_data(symbol="BTCUSDT", interval="15"):
     },
     timeout=10
         )
-        )
+        
 
         response.raise_for_status()
 
@@ -48,7 +48,6 @@ def get_market_data(symbol="BTCUSDT", interval="15"):
         raise Exception(
             f"Bybit Connection Error: {e}"
         )
-
 
 
     if data.get("retCode") != 0:
