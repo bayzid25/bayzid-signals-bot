@@ -1,5 +1,6 @@
 import os
 import threading
+import asyncio
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -13,13 +14,14 @@ from strategy import calculate_signal
 TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = "@bayzidsignals"
 
-
 SYMBOLS = [
     "BTCUSDT",
     "ETHUSDT",
     "SOLUSDT",
     "BNBUSDT"
 ]
+
+last_signals = {}
 
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -45,7 +47,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=CHANNEL_ID,
-        text="🚀 Test Signal\n\n✅ Channel connection OK"
+        text=(
+            "🚀 Crypto Futures Signal Test\n\n"
+            "📌 Pair: BTC/USDT\n"
+            "📈 Direction: LONG\n"
+            "✅ Bot connected successfully!"
+        )
     )
 
     await update.message.reply_text(
@@ -60,24 +67,20 @@ async def scan_market(app):
         for symbol in SYMBOLS:
 
             try:
-                data_15m = get_market_data(
-                    symbol,
-                    "15m"
-                )
-
-                data_1h = get_market_data(
-                    symbol,
-                    "1h"
-                )
-
+                data_15m = get_market_data(symbol, "15m")
+                data_1h = get_market_data(symbol, "1h")
 
                 result = calculate_signal(
                     data_15m,
                     data_1h
                 )
 
+                signal_key = f"{symbol}_{result['signal']}"
 
-                if result["signal"] != "NO SIGNAL":
+                if (
+                    result["signal"] != "NO SIGNAL"
+                    and last_signals.get(symbol) != signal_key
+                ):
 
                     message = f"""
 🚀 Crypto Futures Signal
@@ -86,12 +89,13 @@ async def scan_market(app):
 
 📈 Direction: {result['signal']}
 
-⭐ Score: {result['score']}/8
+⭐ Confidence Score:
+{result['score']}/8
 
-📝 Reason:
+📝 Confirmation:
 {', '.join(result['reasons'])}
 
-⚠️ Manage Risk Properly
+⚠️ Use Proper Risk Management
 """
 
                     await app.bot.send_message(
@@ -99,13 +103,21 @@ async def scan_market(app):
                         text=message
                     )
 
+                    last_signals[symbol] = signal_key
+
 
             except Exception as e:
-                print(e)
+                print("Scanner Error:", e)
 
 
-        time.sleep(900)
+        await asyncio.sleep(900)
 
+
+async def after_start(app):
+
+    asyncio.create_task(
+        scan_market(app)
+    )
 
 
 def main():
@@ -116,7 +128,12 @@ def main():
     ).start()
 
 
-    app = Application.builder().token(TOKEN).build()
+    app = (
+        Application.builder()
+        .token(TOKEN)
+        .post_init(after_start)
+        .build()
+    )
 
 
     app.add_handler(
@@ -130,9 +147,7 @@ def main():
 
     print("Bot Started...")
 
-
     app.run_polling()
-
 
 
 if __name__ == "__main__":
