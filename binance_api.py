@@ -6,7 +6,7 @@ import requests
 
 
 BASE_URL = "https://api.binance.com/api/v3/klines"
-
+print("USING BINANCE URL:", BASE_URL)
 
 # =========================
 # Get Market Data
