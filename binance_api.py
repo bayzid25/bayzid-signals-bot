@@ -1,3 +1,5 @@
+        )
+    )
 # =========================
 # File Name: binance_api.py
 # =========================
@@ -5,11 +7,18 @@
 import requests
 
 
-BASE_URL = "https://api.binance.com/api/v3/klines"
+BASE_URL = "https://fapi.binance.com/fapi/v1/klines"
 
 
+# =========================
+# Get Market Data
+# =========================
 
-def get_market_data(symbol="BTCUSDT", interval="15m", limit=200):
+def get_market_data(
+    symbol="BTCUSDT",
+    interval="15m",
+    limit=200
+):
 
     params = {
         "symbol": symbol,
@@ -18,22 +27,38 @@ def get_market_data(symbol="BTCUSDT", interval="15m", limit=200):
     }
 
 
-    response = requests.get(
-        BASE_URL,
-        params=params,
-        timeout=10
-    )
+    try:
+
+        response = requests.get(
+            BASE_URL,
+            params=params,
+            timeout=15
+        )
 
 
-    candles = response.json()
+        response.raise_for_status()
+
+
+        candles = response.json()
+
+
+
+    except Exception as e:
+
+        raise Exception(
+            f"Binance Connection Error: {e}"
+        )
+
 
 
     # Binance Error Check
+
     if not isinstance(candles, list):
 
         raise Exception(
             f"Binance API Error: {candles}"
         )
+
 
 
     if len(candles) < 50:
@@ -48,82 +73,82 @@ def get_market_data(symbol="BTCUSDT", interval="15m", limit=200):
     volumes = []
 
 
+
     for candle in candles:
 
-        if len(candle) >= 6:
 
-            closes.append(
-                float(candle[4])
-            )
-
-            volumes.append(
-                float(candle[5])
-            )
+        closes.append(
+            float(candle[4])
+        )
 
 
-
-    ema50 = calculate_ema(
-        closes,
-        50
-    )
-
-
-    ema200 = calculate_ema(
-        closes,
-        200
-    )
-
-
-    rsi = calculate_rsi(
-        closes
-    )
-
-
-    macd = (
-        calculate_ema(closes, 12)
-        -
-        calculate_ema(closes, 26)
-    )
-
-
-    signal = calculate_ema(
-        closes,
-        9
-    )
-
-
-    avg_volume = (
-        sum(volumes[-20:])
-        /
-        20
-    )
-
-
-    current_volume = volumes[-1]
+        volumes.append(
+            float(candle[5])
+        )
 
 
 
     return {
 
-        "ema50": ema50,
+        "ema50":
+            calculate_ema(
+                closes,
+                50
+            ),
 
-        "ema200": ema200,
 
-        "rsi": rsi,
+        "ema200":
+            calculate_ema(
+                closes,
+                200
+            ),
 
-        "macd": macd,
 
-        "signal": signal,
+        "rsi":
+            calculate_rsi(
+                closes
+            ),
 
-        "volume": current_volume,
 
-        "avg_volume": avg_volume
+        "macd":
+            (
+                calculate_ema(
+                    closes,
+                    12
+                )
+                -
+                calculate_ema(
+                    closes,
+                    26
+                )
+            ),
+
+
+        "signal":
+            calculate_ema(
+                closes,
+                9
+            ),
+
+
+        "volume":
+            volumes[-1],
+
+
+        "avg_volume":
+            (
+                sum(volumes[-20:])
+                /
+                20
+            )
 
     }
 
 
 
-
+# =========================
+# EMA
+# =========================
 
 def calculate_ema(values, period):
 
@@ -133,26 +158,42 @@ def calculate_ema(values, period):
         return sum(values) / len(values)
 
 
-    return (
-        sum(values[-period:])
-        /
-        period
-    )
+    multiplier = 2 / (period + 1)
+
+
+    ema = values[0]
+
+
+    for price in values[1:]:
+
+        ema = (
+            (price - ema)
+            *
+            multiplier
+            +
+            ema
+        )
+
+
+    return ema
 
 
 
+# =========================
+# RSI
+# =========================
 
-
-def calculate_rsi(closes, period=14):
+def calculate_rsi(
+    closes,
+    period=14
+):
 
 
     gains = []
-
     losses = []
 
 
-
-    for i in range(1, len(closes)):
+    for i in range(1,len(closes)):
 
 
         change = (
@@ -162,22 +203,16 @@ def calculate_rsi(closes, period=14):
         )
 
 
-
         if change >= 0:
 
             gains.append(change)
-
             losses.append(0)
-
 
 
         else:
 
             gains.append(0)
-
-            losses.append(
-                abs(change)
-            )
+            losses.append(abs(change))
 
 
 
@@ -206,11 +241,9 @@ def calculate_rsi(closes, period=14):
 
 
     return (
-        100
-        -
+        100 -
         (
-            100
-            /
+            100 /
             (1 + rs)
         )
     )
