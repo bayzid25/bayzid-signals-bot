@@ -29,9 +29,13 @@ def get_market_data(symbol="BTCUSDT", interval="15"):
     try:
 
         response = requests.get(
-            BASE_URL,
-            params=params,
-            timeout=10
+    BASE_URL,
+    params=params,
+    headers={
+        "User-Agent": "Mozilla/5.0"
+    },
+    timeout=10
+        )
         )
 
         response.raise_for_status()
