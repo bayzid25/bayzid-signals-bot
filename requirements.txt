@@ -1,7 +1,10 @@
-# =========================
-# File Name: requirements.txt
-# =========================
-
-python-telegram-bot
-python-dotenv
-requests
+python-telegram-bot==20.8
+python-binance==1.0.19
+pandas==2.2.2
+numpy==1.26.4
+ta==0.11.0
+python-dotenv==1.0.1
+aiohttp==3.9.5
+requests==2.32.3
+schedule==1.2.2
+gunicorn==23.0.0
