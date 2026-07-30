@@ -1,57 +1,61 @@
-def generate_signal(data):
+def calculate_signal(data_15m, data_1h):
     score = 0
     reasons = []
 
-    # Trend Check
-    if data["ema50"] > data["ema200"]:
+    # 1H Trend Confirmation
+    if data_1h["ema50"] > data_1h["ema200"]:
         score += 2
-        reasons.append("EMA Trend Bullish")
-
-    elif data["ema50"] < data["ema200"]:
+        reasons.append("1H Trend Bullish")
+        trend = "LONG"
+    elif data_1h["ema50"] < data_1h["ema200"]:
         score += 2
-        reasons.append("EMA Trend Bearish")
-
-
-    # RSI Check
-    if data["rsi"] < 35:
-        score += 1
-        reasons.append("RSI Oversold")
-
-    elif data["rsi"] > 65:
-        score += 1
-        reasons.append("RSI Overbought")
-
-
-    # MACD Check
-    if data["macd"] > data["signal"]:
-        score += 2
-        reasons.append("MACD Positive")
-
+        reasons.append("1H Trend Bearish")
+        trend = "SHORT"
     else:
-        score += 2
-        reasons.append("MACD Negative")
+        trend = "NONE"
 
 
-    # Volume Check
-    if data["volume"] > data["avg_volume"]:
+    # 15M Entry Confirmation
+    if trend == "LONG":
+        if data_15m["ema50"] > data_15m["ema200"]:
+            score += 2
+            reasons.append("15M EMA Confirmed")
+
+    elif trend == "SHORT":
+        if data_15m["ema50"] < data_15m["ema200"]:
+            score += 2
+            reasons.append("15M EMA Confirmed")
+
+
+    # RSI Filter
+    if 35 <= data_15m["rsi"] <= 65:
         score += 1
-        reasons.append("High Volume")
+        reasons.append("RSI Healthy")
 
 
-    # Final Decision
+    # MACD Confirmation
+    if trend == "LONG" and data_15m["macd"] > data_15m["signal"]:
+        score += 2
+        reasons.append("MACD Bullish")
+
+    elif trend == "SHORT" and data_15m["macd"] < data_15m["signal"]:
+        score += 2
+        reasons.append("MACD Bearish")
+
+
+    # Volume Confirmation
+    if data_15m["volume"] > data_15m["avg_volume"]:
+        score += 1
+        reasons.append("Volume Confirmed")
+
+
+    # Final Signal
     if score >= 7:
-        if data["ema50"] > data["ema200"]:
-            return {
-                "signal": "LONG",
-                "score": score,
-                "reasons": reasons
-            }
-        else:
-            return {
-                "signal": "SHORT",
-                "score": score,
-                "reasons": reasons
-            }
+        return {
+            "signal": trend,
+            "score": score,
+            "reasons": reasons
+        }
 
     return {
         "signal": "NO SIGNAL",
