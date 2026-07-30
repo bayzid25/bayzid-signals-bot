@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: bayzid-signals-bot
+
+    env: python
+
+    plan: free
+
+    branch: main
+
+    buildCommand: |
+      pip install -r requirements.txt
+
+    startCommand: |
+      python main.py
+
+    autoDeploy: true
+
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+
+      - key: CHANNEL_ID
+        sync: false
