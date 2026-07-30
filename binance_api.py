@@ -1,77 +1,69 @@
-import requests
+from binance.client import Client
+import pandas as pd
+import logging
+
+# Public client (API Key ছাড়াও মার্কেট ডেটা পড়া যায়)
+client = Client()
+
+logger = logging.getLogger(__name__)
 
 
-BASE_URL = "https://api.binance.com/api/v3/klines"
+class BinanceAPI:
 
+    @staticmethod
+    def get_klines(symbol: str, interval: str, limit: int = 300):
+        """
+        Fetch futures candlestick data
+        """
 
-def get_market_data(symbol="BTCUSDT", interval="15m", limit=200):
+        try:
 
-    params = {
-        "symbol": symbol,
-        "interval": interval,
-        "limit": limit
-    }
+            klines = client.futures_klines(
+                symbol=symbol,
+                interval=interval,
+                limit=limit
+            )
 
-    response = requests.get(BASE_URL, params=params)
-    candles = response.json()
+            df = pd.DataFrame(klines, columns=[
+                "open_time",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "close_time",
+                "quote_asset_volume",
+                "number_of_trades",
+                "taker_buy_base",
+                "taker_buy_quote",
+                "ignore"
+            ])
 
-    closes = []
-    volumes = []
+            numeric_columns = [
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume"
+            ]
 
-    for candle in candles:
-        closes.append(float(candle[4]))
-        volumes.append(float(candle[5]))
+            for col in numeric_columns:
+                df[col] = df[col].astype(float)
 
-    ema50 = sum(closes[-50:]) / 50
-    ema200 = sum(closes[-200:]) / 200
+            df["open_time"] = pd.to_datetime(
+                df["open_time"],
+                unit="ms"
+            )
 
-    avg_volume = sum(volumes[-20:]) / 20
-    current_volume = volumes[-1]
+            df["close_time"] = pd.to_datetime(
+                df["close_time"],
+                unit="ms"
+            )
 
-    rsi = calculate_rsi(closes)
+            return df
 
-    macd = ema(closes, 12) - ema(closes, 26)
-    signal = ema(closes, 9)
+        except Exception as e:
 
-    return {
-        "ema50": ema50,
-        "ema200": ema200,
-        "rsi": rsi,
-        "macd": macd,
-        "signal": signal,
-        "volume": current_volume,
-        "avg_volume": avg_volume
-    }
+            logger.error(f"{symbol} {interval} : {e}")
 
-
-def ema(values, period):
-    if len(values) < period:
-        return sum(values) / len(values)
-
-    return sum(values[-period:]) / period
-
-
-def calculate_rsi(closes, period=14):
-
-    gains = []
-    losses = []
-
-    for i in range(1, len(closes)):
-        change = closes[i] - closes[i-1]
-
-        if change >= 0:
-            gains.append(change)
-            losses.append(0)
-        else:
-            gains.append(0)
-            losses.append(abs(change))
-
-    avg_gain = sum(gains[-period:]) / period
-    avg_loss = sum(losses[-period:]) / period
-
-    if avg_loss == 0:
-        return 100
-
-    rs = avg_gain / avg_loss
-
-    return 100 - (100 / (1 + rs))
+            return None
