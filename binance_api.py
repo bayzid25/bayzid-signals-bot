@@ -5,7 +5,7 @@
 import requests
 
 
-BASE_URL = "https://fapi.binance.com/fapi/v1/klines"
+BASE_URL = "https://api.binance.com/api/v3/klines"
 
 
 # =========================
