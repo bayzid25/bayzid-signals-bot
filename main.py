@@ -26,42 +26,62 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID", "@bayzidsignals")
 
-
 SYMBOL = "BTCUSDT"
 
 
-# -------------------------
+# =========================
 # Render Health Check
-# -------------------------
+# =========================
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
+
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Bot is running")
+
+        self.wfile.write(
+            b"Bayzid Signal Bot Running"
+        )
+
+
+    def do_HEAD(self):
+
+        self.send_response(200)
+        self.end_headers()
+
 
 
 def run_server():
 
-    port = int(os.environ.get("PORT", 10000))
+    port = int(
+        os.environ.get(
+            "PORT",
+            10000
+        )
+    )
 
     server = HTTPServer(
         ("0.0.0.0", port),
         HealthCheckHandler
     )
 
-    print(f"Web server running on port {port}")
+    print(
+        f"Web server running on port {port}"
+    )
 
     server.serve_forever()
 
 
 
-# -------------------------
+# =========================
 # Telegram Commands
-# -------------------------
+# =========================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     await update.message.reply_text(
         "✅ Bayzid Signal Bot is Running!"
@@ -69,7 +89,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def test(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     await context.bot.send_message(
         chat_id=CHANNEL_ID,
@@ -81,17 +104,18 @@ async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     )
 
+
     await update.message.reply_text(
         "✅ Test signal sent!"
     )
 
 
 
-# -------------------------
-# Scanner
-# -------------------------
+# =========================
+# Market Scanner
+# =========================
 
-async def scan_market(application):
+async def scan_market(app):
 
     while True:
 
@@ -101,6 +125,7 @@ async def scan_market(application):
                 SYMBOL,
                 "15m"
             )
+
 
             data_1h = get_market_data(
                 SYMBOL,
@@ -114,7 +139,14 @@ async def scan_market(application):
             )
 
 
+            print(
+                "Scanner:",
+                result
+            )
+
+
             if result["signal"] != "NO SIGNAL":
+
 
                 message = (
                     "🚀 Crypto Futures Signal\n\n"
@@ -124,27 +156,24 @@ async def scan_market(application):
                     "Reasons:\n"
                 )
 
-                for r in result["reasons"]:
-                    message += f"✅ {r}\n"
+
+                for reason in result["reasons"]:
+
+                    message += (
+                        f"✅ {reason}\n"
+                    )
 
 
-                await application.bot.send_message(
+                await app.bot.send_message(
                     chat_id=CHANNEL_ID,
                     text=message
                 )
-
-
-            print(
-                "Scanner running:",
-                result
-            )
 
 
         except Exception as e:
 
             print(
                 "Scanner Error:",
-                type(e).__name__,
                 str(e)
             )
 
@@ -153,11 +182,12 @@ async def scan_market(application):
 
 
 
-# -------------------------
-# Main Function
-# -------------------------
+# =========================
+# Bot Start
+# =========================
 
-async def main():
+def main():
+
 
     app = (
         Application
@@ -183,19 +213,35 @@ async def main():
     )
 
 
-    asyncio.create_task(
-        scan_market(app)
+    async def post_init(application):
+
+        asyncio.create_task(
+            scan_market(application)
+        )
+
+        print(
+            "Scanner Started..."
+        )
+
+
+    app.post_init = post_init
+
+
+    print(
+        "Bot Started..."
     )
 
 
-    print("Bot Started...")
+    app.run_polling()
 
 
-    await app.run_polling()
 
-
+# =========================
+# Run Application
+# =========================
 
 if __name__ == "__main__":
+
 
     threading.Thread(
         target=run_server,
