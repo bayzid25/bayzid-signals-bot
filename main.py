@@ -1,154 +1,101 @@
-import os
-import threading
-import asyncio
-import time
-from http.server import HTTPServer, BaseHTTPRequestHandler
-
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-
-from binance_api import get_market_data
-from strategy import calculate_signal
+import requests
 
 
-TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_ID = "@bayzidsignals"
-
-SYMBOLS = [
-    "BTCUSDT",
-    "ETHUSDT",
-    "SOLUSDT",
-    "BNBUSDT"
-]
-
-last_signals = {}
+BASE_URL = "https://api.binance.com/api/v3/klines"
 
 
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot is running")
+def get_market_data(symbol="BTCUSDT", interval="15m", limit=200):
 
+    params = {
+        "symbol": symbol,
+        "interval": interval,
+        "limit": limit
+    }
 
-def run_web_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    print(f"Web server running on port {port}")
-    server.serve_forever()
-
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "✅ Crypto Futures Signal Bot Running!"
+    response = requests.get(
+        BASE_URL,
+        params=params,
+        timeout=10
     )
 
+    candles = response.json()
 
-async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(
-        chat_id=CHANNEL_ID,
-        text=(
-            "🚀 Crypto Futures Signal Test\n\n"
-            "📌 Pair: BTC/USDT\n"
-            "📈 Direction: LONG\n"
-            "✅ Bot connected successfully!"
-        )
-    )
-
-    await update.message.reply_text(
-        "✅ Test signal sent!"
-    )
+    # Binance error check
+    if not isinstance(candles, list) or len(candles) == 0:
+        raise Exception(f"Invalid Binance response: {candles}")
 
 
-async def scan_market(app):
+    closes = []
+    volumes = []
 
-    while True:
-
-        for symbol in SYMBOLS:
-
-            try:
-                data_15m = get_market_data(symbol, "15m")
-                data_1h = get_market_data(symbol, "1h")
-
-                result = calculate_signal(
-                    data_15m,
-                    data_1h
-                )
-
-                signal_key = f"{symbol}_{result['signal']}"
-
-                if (
-                    result["signal"] != "NO SIGNAL"
-                    and last_signals.get(symbol) != signal_key
-                ):
-
-                    message = f"""
-🚀 Crypto Futures Signal
-
-📌 Pair: {symbol}
-
-📈 Direction: {result['signal']}
-
-⭐ Confidence Score:
-{result['score']}/8
-
-📝 Confirmation:
-{', '.join(result['reasons'])}
-
-⚠️ Use Proper Risk Management
-"""
-
-                    await app.bot.send_message(
-                        chat_id=CHANNEL_ID,
-                        text=message
-                    )
-
-                    last_signals[symbol] = signal_key
+    for candle in candles:
+        if len(candle) >= 6:
+            closes.append(float(candle[4]))
+            volumes.append(float(candle[5]))
 
 
-            except Exception as e:
-                print("Scanner Error:", e)
+    if len(closes) < 50:
+        raise Exception("Not enough market data")
 
 
-        await asyncio.sleep(900)
+    ema50 = sum(closes[-50:]) / 50
+    ema200 = sum(closes[-200:]) / 200
+
+    avg_volume = sum(volumes[-20:]) / 20
+    current_volume = volumes[-1]
+
+    rsi = calculate_rsi(closes)
+
+    macd = calculate_ema(closes, 12) - calculate_ema(closes, 26)
+    signal = calculate_ema(closes, 9)
 
 
-async def after_start(app):
-
-    asyncio.create_task(
-        scan_market(app)
-    )
-
-
-def main():
-
-    threading.Thread(
-        target=run_web_server,
-        daemon=True
-    ).start()
+    return {
+        "ema50": ema50,
+        "ema200": ema200,
+        "rsi": rsi,
+        "macd": macd,
+        "signal": signal,
+        "volume": current_volume,
+        "avg_volume": avg_volume
+    }
 
 
-    app = (
-        Application.builder()
-        .token(TOKEN)
-        .post_init(after_start)
-        .build()
-    )
+
+def calculate_ema(values, period):
+
+    if len(values) < period:
+        return sum(values) / len(values)
+
+    return sum(values[-period:]) / period
 
 
-    app.add_handler(
-        CommandHandler("start", start)
-    )
 
-    app.add_handler(
-        CommandHandler("test", test)
-    )
+def calculate_rsi(closes, period=14):
+
+    gains = []
+    losses = []
+
+    for i in range(1, len(closes)):
+
+        change = closes[i] - closes[i-1]
+
+        if change >= 0:
+            gains.append(change)
+            losses.append(0)
+        else:
+            gains.append(0)
+            losses.append(abs(change))
 
 
-    print("Bot Started...")
+    avg_gain = sum(gains[-period:]) / period
+    avg_loss = sum(losses[-period:]) / period
 
-    app.run_polling()
+
+    if avg_loss == 0:
+        return 100
 
 
-if __name__ == "__main__":
-    main()
+    rs = avg_gain / avg_loss
+
+    return 100 - (100 / (1 + rs))
